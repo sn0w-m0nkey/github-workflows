@@ -1,0 +1,28 @@
+1. Website deploys to Azure on push to Main branch
+
+	AZURE
+	Create Resource Group
+	Create App Service Plan
+	Create Web App within the plan with Application Insights
+	Create User Assigned Managed Identity
+		Add a Role Assignment with the role of Website Contributor
+		Add Federated Credentials that link to your GitHub repo
+		
+	GITHUB
+	Add secrets to GitHub - Secrets and variables - Actions
+		Get them from your Managed Identity - Settings - Properties
+			AZUREAPPSERVICE_CLIENTID
+			AZUREAPPSERVICE_TENANTID
+			AZUREAPPSERVICE_TENANTID
+
+	PROJECT
+	Add workflows to project
+		Update variables
+			client-id
+			tenant-id
+			subscription-id
+			app-name
+			slot-name
+			
+2. 
+		
