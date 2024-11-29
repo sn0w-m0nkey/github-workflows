@@ -1,7 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-# https://docs.github.com/en/actions/use-cases-and-examples/deploying/deploying-net-to-azure-app-service
 
 #name: Build and deploy ASP.Net Core app to Azure Web App - wa-github-workflows
 name: deploy to staging
@@ -28,7 +24,7 @@ jobs:
           dotnet-version: '8.x'
           
       - name: Set up dependency caching for faster builds
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
@@ -40,42 +36,31 @@ jobs:
 
       - name: Build the project
         run: dotnet publish -c Release -o ./publish
-
-#      - name: Run unit tests
-#        run: dotnet test ./publish/Tests.csproj --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults" || true
-
-      # Step 4: Run Tests
+      
+      #      - name: List files - ls 1a
+      #        run: ls -1a
+      #      - name: List all files - ls -R
+      #        run: ls -R
+      
       - name: Run Tests
         run: dotnet test --logger "trx;LogFileName=test_results.trx" --results-directory ./TestResults
         continue-on-error: true  # Allow the job to continue even if tests fail
       
-      # Step 5: Annotate Test Results with Dorny
-      - name: Annotate Test Results
+      - name: Add Dorny test results to GitHub actions result
         uses: dorny/test-reporter@v1
         if: always()  # Always run this step even if tests fail
         with:
-          name: C# Test Results
+          name: Test Results
           path: ./TestResults/*.trx  # Path to the TRX test result files
           reporter: dotnet-trx  # Use the .NET TRX parser
           fail-on-error: false  # Do not fail the workflow if the report has issues
-          
-#      - name: List files - ls 1a
-#        run: ls -1a
-#      - name: List all files - ls -R
-#        run: ls -R
 
-      - name: Upload test results in zip file
-        uses: actions/upload-artifact@v4
+      - name: Upload test results in to GitHub actions in a zip file
+        uses: actions/upload-artifact@v4 # Always run this step even if tests fail
+        if: ${{ always() }}
         with:
           name: dotnet-results
-          path: TestResults
-        # Use always() to always run this step to publish test results when there are test failures
-        if: ${{ always() }}
-
-
-
-
-
+          path: ./TestResults/*.trx       
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
