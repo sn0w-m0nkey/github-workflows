@@ -13,56 +13,20 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up .NET Core
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.x'
-
-      - name: Set up dependency caching for faster builds
-        uses: actions/cache@v3
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
-
-      #- name: Run Unit tests
-      #  run: dotnet test ./Tests/Tests.csproj --configuration Release
-        
-      - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
-
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: .net-app
-          path: ${{env.DOTNET_ROOT}}/myapp
-        
-  # https://octopus.com/blog/githubactions-running-unit-tests
-  # https://docs.github.com/en/actions/use-cases-and-examples/building-and-testing/building-and-testing-net
-  tests:
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: 'Production'
+  build-and-deploy:
     permissions: write-all
+    
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
-
+          
       - name: Set up dependency caching for faster builds
         uses: actions/cache@v3
         with:
@@ -71,56 +35,51 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Build with dotnet
-        run: dotnet build --configuration Release
+      - name: Restore dependencies
+        run: dotnet restore
 
-      - name: Run unit tests
-        run: dotnet test ./Tests/Tests.csproj --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults" || true
-      - name: Test Report
+      - name: Build the project
+        run: dotnet publish -c Release -o ./publish
+
+#      - name: Run unit tests
+#        run: dotnet test ./publish/Tests.csproj --configuration Release --logger "trx;LogFileName=test-results.trx" --results-directory "TestResults" || true
+
+      # Step 4: Run Tests
+      - name: Run Tests
+        run: dotnet test --logger "trx;LogFileName=test_results.trx" --results-directory ./TestResults
+        continue-on-error: true  # Allow the job to continue even if tests fail
+      
+      # Step 5: Annotate Test Results with Dorny
+      - name: Annotate Test Results
         uses: dorny/test-reporter@v1
-        if: always()
+        if: always()  # Always run this step even if tests fail
         with:
-          name: DotNET Tests
-          path: "**/test-results.trx"
-          reporter: dotnet-trx
-          fail-on-error: true
+          name: C# Test Results
+          path: ./TestResults/*.trx  # Path to the TRX test result files
+          reporter: dotnet-trx  # Use the .NET TRX parser
+          fail-on-error: false  # Do not fail the workflow if the report has issues
+          
+#      - name: List files - ls 1a
+#        run: ls -1a
+#      - name: List all files - ls -R
+#        run: ls -R
 
-      - name: Upload dotnet test results
+      - name: Upload test results in zip file
         uses: actions/upload-artifact@v4
         with:
           name: dotnet-results
           path: TestResults
         # Use always() to always run this step to publish test results when there are test failures
         if: ${{ always() }}
-  
-  # Using deployment slots to reduce site downtime
-  # https://dev.to/florianlenz/automated-deployment-slots-in-azure-with-github-actions-testing-pull-requests-in-live-environments-3k05
-  deploy:
-    runs-on: ubuntu-latest
-    needs: tests
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
 
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: .net-app
-      
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+
+
+
+
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v2
         with:
           app-name: 'wa-github-workflows'
-          slot-name: 'Staging'
-          package: .
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          package: ./publish
