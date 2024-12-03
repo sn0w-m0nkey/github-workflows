@@ -1,11 +1,11 @@
 
 #name: Build and deploy ASP.Net Core app to Azure Web App - wa-github-workflows
-name: deploy to staging
+name: single step deploy with tests
 
 on:
-  push:
-    branches:
-      - main
+#  push:
+#    branches:
+#      - main
   workflow_dispatch:
 
 jobs:
