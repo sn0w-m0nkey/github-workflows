@@ -1,5 +1,5 @@
-
 #name: Build and deploy ASP.Net Core app to Azure Web App - wa-github-workflows
+
 name: deploy
 
 on:
@@ -54,15 +54,12 @@ jobs:
           name: .net-app
 
       - name: Run Tests from Artifact
-        run: dotnet test Tests.dll
-
-      - name: Run Tests
         run: dotnet test Tests.dll --logger "trx;LogFileName=test_results.trx" --results-directory ./TestResults
         continue-on-error: true  # Allow the job to continue even if tests fail
       
       - name: Upload test results in to GitHub actions in a zip file
-        uses: actions/upload-artifact@v4 # Always run this step even if tests fail
-        if: ${{ always() }}
+        uses: actions/upload-artifact@v4 
+        if: ${{ always() }} # Always run this step even if tests fail
         with:
           name: test-results
           path: ./TestResults/*.trx
@@ -73,9 +70,9 @@ jobs:
         with:
           name: Test Results
           artifact: test-results
-          path: "**/*.trx"  # Path to the TRX test result files
+          path: "**/*.trx"  # Path to the TRX test result files created by 'dotnet test'
           reporter: dotnet-trx  # Use the .NET TRX parser
-          fail-on-error: false  # Do not fail the workflow if the report has issues
+          fail-on-error: false  # Don's fail the workflow if the report has issues
 
   deploy:
     runs-on: ubuntu-latest
