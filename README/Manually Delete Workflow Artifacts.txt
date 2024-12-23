@@ -1,0 +1,4 @@
+
+gh auth login
+
+gh api -X GET /repos/:owner/:repo/actions/artifacts | jq '.artifacts[].id' | xargs -n 1 -I {} gh api -X DELETE /repos/sn0w-m0nkey/github-workflows/actions/artifacts/{}

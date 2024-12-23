@@ -1,6 +1,6 @@
 #name: Build and deploy ASP.Net Core app to Azure Web App - wa-github-workflows
 
-name: simple deploy
+name: deploy basic
 
 on:
 #  push:
