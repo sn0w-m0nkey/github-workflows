@@ -1,31 +1,36 @@
-using web.Configuration;
+using Web.Components;
+using Web.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
-
-builder.Services.Configure<AppConfig>(builder.Configuration.GetSection(AppConfig.SectionName));
+builder.Services
+    .RegisterDataComponents(builder.Configuration)
+    .ConfigureAuthentication(builder.Configuration)
+    .RegisterWebComponents(builder.Configuration);
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseMigrationsEndPoint();
+}
+else
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
+
 app.UseStaticFiles();
+app.UseAntiforgery();
 
-app.UseRouting();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+// Add additional endpoints required by the Identity /Account Razor components.
+app.MapAdditionalIdentityEndpoints();
 
 app.Run();
