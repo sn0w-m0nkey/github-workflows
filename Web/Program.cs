@@ -13,10 +13,12 @@ builder.Services
 var app = builder.Build();
 
 // Ensure database and tables exist
+// TODO: Make this conditional based on input --RunMigrations
+// https://medium.com/geekculture/ways-to-run-entity-framework-migrations-in-asp-net-core-6-37719993ddcb
 {
     using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await context.Database.MigrateAsync();
+    //await context.Database.MigrateAsync();
     //await context.Database.EnsureCreatedAsync();
 }
 
