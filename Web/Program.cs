@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Web.Components;
+using Web.Data;
 using Web.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,6 +11,14 @@ builder.Services
     .RegisterWebComponents(builder.Configuration);
 
 var app = builder.Build();
+
+// Ensure database and tables exist
+{
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await context.Database.MigrateAsync();
+    //await context.Database.EnsureCreatedAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

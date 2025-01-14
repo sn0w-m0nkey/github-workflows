@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Web.Components;
 using Web.Components.Account;
 using Web.Configuration;
 using Web.Data;
@@ -13,10 +14,16 @@ public static class ProgramBuilderExtensions
 {
     public static IServiceCollection RegisterDataComponents(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection") ??
+        var connectionString = configuration.GetConnectionString( nameof(ConnectionStrings.DefaultConnection)) ??
                                throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+        
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(connectionString));
+        {
+            options
+                .UseSqlServer(connectionString);
+            //.UseAsyncSeeding()
+        });
+            
         services.AddDatabaseDeveloperPageExceptionFilter();
 
         services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
@@ -32,7 +39,6 @@ public static class ProgramBuilderExtensions
         });
         
         return services;
-        
     }
     
     public static IServiceCollection ConfigureAuthentication(this IServiceCollection services,
@@ -98,6 +104,8 @@ public static class ProgramBuilderExtensions
     
     private static void ConfigureOptions(IServiceCollection services, IConfiguration configuration)
     {
+        services.Configure<ConnectionStrings>(configuration.GetSection(ConnectionStrings.SectionName));
+        
         services.Configure<SendGridConfig>(configuration.GetSection(SendGridConfig.SectionName));
         services.Configure<GmailConfig>(configuration.GetSection(GmailConfig.SectionName));
     }

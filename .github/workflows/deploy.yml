@@ -83,6 +83,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: .net-app
+          path: ./publish
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
@@ -90,6 +91,13 @@ jobs:
           app-name: 'wa-github-workflows'
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
           package: .
+          
+#      - name: Finished
+#        run: echo Solution Deployed
+#      - name: Finished
+#        run: |
+#          echo Solution,
+#          echo Deployed
 
 #  switch-slots:
 #    runs-on: ubuntu-latest
