@@ -25,18 +25,6 @@ public static class ProgramBuilderExtensions
         });
             
         services.AddDatabaseDeveloperPageExceptionFilter();
-
-        services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
-            .AddRoles<IdentityRole>()
-            .AddEntityFrameworkStores<ApplicationDbContext>()
-            .AddSignInManager()
-            .AddDefaultTokenProviders();
-
-        services.AddAuthorization(options =>
-        {
-            options.AddPolicy("RequireAdministratorRole",
-                policy => policy.RequireRole("Administrator"));
-        });
         
         return services;
     }
@@ -56,6 +44,17 @@ public static class ProgramBuilderExtensions
             })
             .AddIdentityCookies();
 
+        services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
+            .AddRoles<IdentityRole>()
+            .AddEntityFrameworkStores<ApplicationDbContext>()
+            .AddSignInManager()
+            .AddDefaultTokenProviders();
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy("RequireAdministratorRole",
+                policy => policy.RequireRole("Administrator"));
+        });
         
         // services.Configure<IdentityOptions>(options =>
         // {

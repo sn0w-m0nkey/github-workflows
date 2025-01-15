@@ -1,4 +1,4 @@
-namespace XUnitTests;
+﻿namespace Tests;
 
 public class Tests
 {

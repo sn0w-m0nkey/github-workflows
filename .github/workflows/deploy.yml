@@ -5,13 +5,12 @@ name: deploy
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 jobs:
   build:
-    
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -20,8 +19,8 @@ jobs:
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x'
-          
+          dotnet-version: '9.x'
+
       - name: Setup EF Tools
         run: |
           dotnet tool install --global dotnet-ef 
@@ -38,30 +37,29 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
-      - name: Build the project
-        run: dotnet publish -c Release -o ./publish
+      - name: Build the project with dotnet
+        run: dotnet build --configuration Release
+
+      - name: dotnet publish
+        run: dotnet publish -c Release -o "${{env.DOTNET_ROOT}}/myapp"
 
       - name: Build EF Bundle
-        run: dotnet ef migrations bundle --project Web --output ./data/efbundle.exe --self-contained --force -- 
-        
-      - name: Create Migrations Script
-        run: |
-          dotnet ef migrations script --output ./data/migrations.sql --idempotent --context ApplicationDbContext --project Web --startup-project Web
-          
+        run: dotnet ef migrations bundle --project Web --output ./data/efbundle.exe --self-contained --force --
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
-          path: ./publish
-          
+          path: ${{env.DOTNET_ROOT}}/myapp
+
       - name: Upload EF Migrations Bundle Artifact
         uses: actions/upload-artifact@v4
         with:
           name: efbundle
           path: ./data
-
+  
   tests:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: build
     permissions: write-all
 
@@ -74,14 +72,14 @@ jobs:
       - name: Run Tests from Artifact
         run: dotnet test Tests.dll --logger "trx;LogFileName=test_results.trx" --results-directory ./TestResults
         continue-on-error: false  # Don't allow the job to continue even if tests fail
-      
+
       - name: Upload test results to the workflow run in a zip file
-        uses: actions/upload-artifact@v4 
+        uses: actions/upload-artifact@v4
         if: ${{ always() }} # Always run this step even if tests fail
         with:
           name: test-results
           path: "**/*.trx"
-          
+
       - name: Add Dorny test results to the workflow run
         uses: dorny/test-reporter@v1
         if: always()  # Always run this step even if tests fail
@@ -93,106 +91,40 @@ jobs:
           fail-on-error: false  # Don't fail the workflow if the report has issues
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: tests
-    
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    permissions:
+      id-token: write #This is required for requesting the JWT
+
     steps:
-      - name: Download .NET artifact from build job
+      - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: .net-app
-          path: ./publish
 
       - name: Download EF artifact from build job (bundle & script)
         uses: actions/download-artifact@v4
         with:
           name: efbundle
-          path: ./data
-          
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+
+      - name: Run EF migrations from bundle
+        run:
+          ./efbundle.exe --connection "${{ secrets.AZURE_SQL_CONNECTIONSTRING }}"
+
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'wa-github-workflows'
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          slot-name: 'Production'
           package: .
-
-      - name: List Files 2 layers deep
-        run: |
-          ls -d * */*
-      
-      # Use SQL Migration Script
-#      - name: Run SQL migration script
-#        run: |
-          
-      
-      # Run migrations using benday-inc          
-#      - name: deploy entity framework core migrations
-#        uses: benday-inc/deploy-ef-core-migration@main
-#        with:
-#          path_to_directory: './publish/'
-#          migrations_dll: 'Web.dll'
-#          migrations_namespace: 'Web.Data'
-#          startup_dll: 'Web.dll'
-#          dbcontext_class_name: 'ApplicationDbContext'
-
-      # dotnet ef database update
-#      - name: Apply Entity Framework Migrations
-#        env:
-#          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
-#        run: |
-#          dotnet tool install --global dotnet-ef
-#          dotnet tool restore
-#          export PATH="$PATH:$HOME/.dotnet/tools"
-#          dotnet ef database update --project ./publish/Web --connection $ConnectionStrings__DefaultConnection
-      
-      # Run migrations from Bundle
-#      - name: Run EF Migrations
-#        env:
-#          CONNECTION_STRING: ${{ secrets.AZURE_SQL_CONNECTIONSTRING }}
-#        run: ./data/efbundle.exe --connection "${CONNECTION_STRING}"
-      
-
-
-
-
-
-#      - name: List All  Files
-#        run: |
-#          ls *
-
-#      - name: List Files 2 layers deep
-#        run: |
-#          ls -d * */*
-          
-#      - name: Finished
-#        run: echo Solution Deployed
-#      - name: Finished
-#        run: |
-#          echo Solution,
-#          echo Deployed
-
-#  switch-slots:
-#    runs-on: ubuntu-latest
-#    needs: deploy
-#    
-#    steps:
-#      - name: Azure login
-#        uses: azure/CLI@v2
-#        with:
-#          auth-type: IDENTITY
-#          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-#          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-#          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-#          enable-AzPSSession: true
-#                      
-#      - name: Azure CLI script
-#        uses: azure/cli@v2
-#        with:
-#          azcliversion: latest
-#          inlineScript: |
-#            az account show
-#            az login
-#            az webapp deployment slot swap --slot wa-github-workflows --name wa-github-workflows-staging --resource-group rg-github-workflows
-
-# ls command
-# https://www.freecodecamp.org/news/the-linux-ls-command-how-to-list-files-in-a-directory-with-options/
