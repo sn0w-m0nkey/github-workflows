@@ -3,9 +3,9 @@
 name: deploy
 
 on:
-  push:
-    branches:
-      - master
+#  push:
+#    branches:
+#      - master
   workflow_dispatch:
 
 jobs:
@@ -34,8 +34,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Restore dependencies
-        run: dotnet restore
+#      - name: Restore dependencies
+#        run: dotnet restore
 
       - name: Build the project with dotnet
         run: dotnet build --configuration Release
